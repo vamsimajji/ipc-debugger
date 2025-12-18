@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>IPC Case: Synchronization</title>
+    <style>
+        body { font-family: sans-serif; text-align: center; background: #f4f4f4; padding: 20px; }
+        .box { border: 2px solid #333; background: white; padding: 20px; margin: 10px auto; width: 300px; border-radius: 8px; }
+        .shared-var { font-size: 40px; font-weight: bold; color: #007bff; margin: 20px; }
+        .log { background: #222; color: #0f0; padding: 10px; height: 150px; overflow-y: auto; text-align: left; font-family: monospace; width: 80%; margin: 0 auto; border-radius: 5px;}
+        button { padding: 10px 20px; font-size: 16px; cursor: pointer; margin: 5px; }
+        .btn-danger { background: #dc3545; color: white; border: none; }
+        .btn-success { background: #28a745; color: white; border: none; }
+        .highlight { background-color: yellow; transition: 0.2s; }
+    </style>
+</head>
+<body>
+
+    <h1>Case 2: Race Condition vs Mutex</h1>
+    <p>Simulating 2 threads incrementing a counter 5 times each. Target should be 10.</p>
+
+    <div class="box">
+        <h3>Shared Counter</h3>
+        <div id="counter" class="shared-var">0</div>
+        <div id="lock-status" style="color:red; font-weight:bold; height:20px;"></div>
+    </div>
+
+    <button class="btn-danger" onclick="startRaceCondition()">Run Unsafe (Race Condition)</button>
+    <button class="btn-success" onclick="startMutex()">Run Safe (With Mutex)</button>
+    <button onclick="reset()">Reset</button>
+
+    <br><br>
+    <div class="log" id="log">Ready...</div>
+
+    <script>
+        let counterVal = 0;
+        let logEl = document.getElementById("log");
+        let countEl = document.getElementById("counter");
+        let lockEl = document.getElementById("lock-status");
+
+        function log(msg) { logEl.innerHTML += `> ${msg}<br>`; logEl.scrollTop = logEl.scrollHeight; }
+        function updateDisplay() { countEl.innerText = counterVal; countEl.classList.add("highlight"); setTimeout(()=>countEl.classList.remove("highlight"), 100); }
+        function reset() { counterVal = 0; countEl.innerText = "0"; logEl.innerText = "Ready..."; lockEl.innerText = ""; }
+
+        // --- UNSAFE SCENARIO (Simulated Race Condition) ---
+        // We simulate the "Read-Modify-Write" gap using random timeouts
+        async function startRaceCondition() {
+            reset();
+            log("--- STARTING UNSAFE EXECUTION ---");
+            
+            // Start both "threads" at the same time
+            let p1 = runUnsafeThread("Thread A");
+            let p2 = runUnsafeThread("Thread B");
+            
+            await Promise.all([p1, p2]);
+            log(`FINISHED. Final Value: ${counterVal} (Expected: 10)`);
+            if(counterVal < 10) alert(`Race Condition Occurred! Final value is ${counterVal} instead of 10.`);
+        }
+
+        async function runUnsafeThread(name) {
+            for(let i=0; i<5; i++) {
+                // Step 1: Read (Simulate delay between read and write)
+                let temp = counterVal; 
+                log(`${name} read value: ${temp}`);
+                
+                // Simulate context switch delay
+                await new Promise(r => setTimeout(r, Math.random() * 100)); 
+                
+                // Step 2: Write
+                counterVal = temp + 1;
+                updateDisplay();
+                log(`${name} wrote value: ${counterVal}`);
+            }
+        }
+
+        // --- SAFE SCENARIO (Mutex) ---
+        let mutexLock = false;
+
+        async function acquireLock(name) {
+            while(mutexLock) {
+                log(`${name} waiting for lock...`);
+                await new Promise(r => setTimeout(r, 100)); // Spin wait
+            }
+            mutexLock = true;
+            lockEl.innerText = "🔒 LOCKED by " + name;
+            return true;
+        }
+
+        function releaseLock() {
+            mutexLock = false;
+            lockEl.innerText = "🔓 UNLOCKED";
+        }
+
+        async function startMutex() {
+            reset();
+            log("--- STARTING SAFE EXECUTION (MUTEX) ---");
+            let p1 = runSafeThread("Thread A");
+            let p2 = runSafeThread("Thread B");
+            await Promise.all([p1, p2]);
+            log(`FINISHED. Final Value: ${counterVal} (Expected: 10)`);
+            alert("Success! Data integrity maintained.");
+        }
+
+        async function runSafeThread(name) {
+            for(let i=0; i<5; i++) {
+                await acquireLock(name);
+                // Critical Section
+                let temp = counterVal;
+                await new Promise(r => setTimeout(r, 50)); // Delay doesn't matter now!
+                counterVal = temp + 1;
+                updateDisplay();
+                log(`${name} incremented to ${counterVal}`);
+                releaseLock();
+                // Random delay outside critical section
+                await new Promise(r => setTimeout(r, Math.random() * 50)); 
+            }
+        }
+    </script>
+</body>
+</html><!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>IPC Case: Synchronization</title>
+    <style>
+        body { font-family: sans-serif; text-align: center; background: #f4f4f4; padding: 20px; }
+        .box { border: 2px solid #333; background: white; padding: 20px; margin: 10px auto; width: 300px; border-radius: 8px; }
+        .shared-var { font-size: 40px; font-weight: bold; color: #007bff; margin: 20px; }
+        .log { background: #222; color: #0f0; padding: 10px; height: 150px; overflow-y: auto; text-align: left; font-family: monospace; width: 80%; margin: 0 auto; border-radius: 5px;}
+        button { padding: 10px 20px; font-size: 16px; cursor: pointer; margin: 5px; }
+        .btn-danger { background: #dc3545; color: white; border: none; }
+        .btn-success { background: #28a745; color: white; border: none; }
+        .highlight { background-color: yellow; transition: 0.2s; }
+    </style>
+</head>
+<body>
+
+    <h1>Case 2: Race Condition vs Mutex</h1>
+    <p>Simulating 2 threads incrementing a counter 5 times each. Target should be 10.</p>
+
+    <div class="box">
+        <h3>Shared Counter</h3>
+        <div id="counter" class="shared-var">0</div>
+        <div id="lock-status" style="color:red; font-weight:bold; height:20px;"></div>
+    </div>
+
+    <button class="btn-danger" onclick="startRaceCondition()">Run Unsafe (Race Condition)</button>
+    <button class="btn-success" onclick="startMutex()">Run Safe (With Mutex)</button>
+    <button onclick="reset()">Reset</button>
+
+    <br><br>
+    <div class="log" id="log">Ready...</div>
+
+    <script>
+        let counterVal = 0;
+        let logEl = document.getElementById("log");
+        let countEl = document.getElementById("counter");
+        let lockEl = document.getElementById("lock-status");
+
+        function log(msg) { logEl.innerHTML += `> ${msg}<br>`; logEl.scrollTop = logEl.scrollHeight; }
+        function updateDisplay() { countEl.innerText = counterVal; countEl.classList.add("highlight"); setTimeout(()=>countEl.classList.remove("highlight"), 100); }
+        function reset() { counterVal = 0; countEl.innerText = "0"; logEl.innerText = "Ready..."; lockEl.innerText = ""; }
+
+        // --- UNSAFE SCENARIO (Simulated Race Condition) ---
+        // We simulate the "Read-Modify-Write" gap using random timeouts
+        async function startRaceCondition() {
+            reset();
+            log("--- STARTING UNSAFE EXECUTION ---");
+            
+            // Start both "threads" at the same time
+            let p1 = runUnsafeThread("Thread A");
+            let p2 = runUnsafeThread("Thread B");
+            
+            await Promise.all([p1, p2]);
+            log(`FINISHED. Final Value: ${counterVal} (Expected: 10)`);
+            if(counterVal < 10) alert(`Race Condition Occurred! Final value is ${counterVal} instead of 10.`);
+        }
+
+        async function runUnsafeThread(name) {
+            for(let i=0; i<5; i++) {
+                // Step 1: Read (Simulate delay between read and write)
+                let temp = counterVal; 
+                log(`${name} read value: ${temp}`);
+                
+                // Simulate context switch delay
+                await new Promise(r => setTimeout(r, Math.random() * 100)); 
+                
+                // Step 2: Write
+                counterVal = temp + 1;
+                updateDisplay();
+                log(`${name} wrote value: ${counterVal}`);
+            }
+        }
+
+        // --- SAFE SCENARIO (Mutex) ---
+        let mutexLock = false;
+
+        async function acquireLock(name) {
+            while(mutexLock) {
+                log(`${name} waiting for lock...`);
+                await new Promise(r => setTimeout(r, 100)); // Spin wait
+            }
+            mutexLock = true;
+            lockEl.innerText = "🔒 LOCKED by " + name;
+            return true;
+        }
+
+        function releaseLock() {
+            mutexLock = false;
+            lockEl.innerText = "🔓 UNLOCKED";
+        }
+
+        async function startMutex() {
+            reset();
+            log("--- STARTING SAFE EXECUTION (MUTEX) ---");
+            let p1 = runSafeThread("Thread A");
+            let p2 = runSafeThread("Thread B");
+            await Promise.all([p1, p2]);
+            log(`FINISHED. Final Value: ${counterVal} (Expected: 10)`);
+            alert("Success! Data integrity maintained.");
+        }
+
+        async function runSafeThread(name) {
+            for(let i=0; i<5; i++) {
+                await acquireLock(name);
+                // Critical Section
+                let temp = counterVal;
+                await new Promise(r => setTimeout(r, 50)); // Delay doesn't matter now!
+                counterVal = temp + 1;
+                updateDisplay();
+                log(`${name} incremented to ${counterVal}`);
+                releaseLock();
+                // Random delay outside critical section
+                await new Promise(r => setTimeout(r, Math.random() * 50)); 
+            }
+        }
+    </script>
+</body>
+</html>
