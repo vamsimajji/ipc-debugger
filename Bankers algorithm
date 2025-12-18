@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>IPC Case: Banker's Algorithm</title>
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; padding: 20px; background: #eef2f3; text-align: center; }
+        table { margin: 10px auto; border-collapse: collapse; background: white; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
+        th, td { border: 1px solid #ddd; padding: 8px 15px; }
+        th { background-color: #007bff; color: white; }
+        input { width: 50px; text-align: center; }
+        button { background: #28a745; color: white; border: none; padding: 10px 20px; cursor: pointer; font-size: 16px; margin-top: 20px; }
+        button:hover { background: #218838; }
+        #result { margin-top: 20px; font-weight: bold; font-size: 1.2em; }
+        .safe { color: green; }
+        .unsafe { color: red; }
+    </style>
+</head>
+<body>
+
+    <h1>Case 3: Banker's Algorithm Simulator</h1>
+    <p>Enter the Allocation and Max Need for 4 Processes (P0-P3) and 3 Resources (A, B, C).</p>
+
+    <h3>Available Resources: 
+        A: <input type="number" id="availA" value="3"> 
+        B: <input type="number" id="availB" value="3"> 
+        C: <input type="number" id="availC" value="2">
+    </h3>
+
+    <table id="inputTable">
+        <thead>
+            <tr>
+                <th>Process</th>
+                <th colspan="3">Allocation (A B C)</th>
+                <th colspan="3">Max Need (A B C)</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr> <td>P0</td> 
+                <td><input type="number" value="0" id="a0_0"></td> <td><input type="number" value="1" id="a0_1"></td> <td><input type="number" value="0" id="a0_2"></td>
+                <td><input type="number" value="7" id="m0_0"></td> <td><input type="number" value="5" id="m0_1"></td> <td><input type="number" value="3" id="m0_2"></td>
+            </tr>
+            <tr> <td>P1</td> 
+                <td><input type="number" value="2" id="a1_0"></td> <td><input type="number" value="0" id="a1_1"></td> <td><input type="number" value="0" id="a1_2"></td>
+                <td><input type="number" value="3" id="m1_0"></td> <td><input type="number" value="2" id="m1_1"></td> <td><input type="number" value="2" id="m1_2"></td>
+            </tr>
+            <tr> <td>P2</td> 
+                <td><input type="number" value="3" id="a2_0"></td> <td><input type="number" value="0" id="a2_1"></td> <td><input type="number" value="2" id="a2_2"></td>
+                <td><input type="number" value="9" id="m2_0"></td> <td><input type="number" value="0" id="m2_1"></td> <td><input type="number" value="2" id="m2_2"></td>
+            </tr>
+            <tr> <td>P3</td> 
+                <td><input type="number" value="2" id="a3_0"></td> <td><input type="number" value="1" id="a3_1"></td> <td><input type="number" value="1" id="a3_2"></td>
+                <td><input type="number" value="2" id="m3_0"></td> <td><input type="number" value="2" id="m3_1"></td> <td><input type="number" value="2" id="m3_2"></td>
+            </tr>
+        </tbody>
+    </table>
+
+    <button onclick="calculateSafeSequence()">Check System Safety</button>
+
+    <div id="result"></div>
+
+    <script>
+        function getVal(id) { return parseInt(document.getElementById(id).value) || 0; }
+
+        function calculateSafeSequence() {
+            let n = 4; // Processes
+            let m = 3; // Resources
+
+            // 1. Initial Available Vector
+            let avail = [getVal('availA'), getVal('availB'), getVal('availC')];
+
+            let alloc = [];
+            let max = [];
+            
+            // Read Table inputs
+            for(let i=0; i<n; i++) {
+                alloc[i] = [getVal(`a${i}_0`), getVal(`a${i}_1`), getVal(`a${i}_2`)];
+                max[i] =   [getVal(`m${i}_0`), getVal(`m${i}_1`), getVal(`m${i}_2`)];
+            }
+
+            // Calculate Need Matrix (Need = Max - Alloc)
+            let need = [];
+            for(let i=0; i<n; i++) {
+                need[i] = [];
+                for(let j=0; j<m; j++) {
+                    need[i][j] = max[i][j] - alloc[i][j];
+                }
+            }
+
+            // Banker's Logic
+            let finish = [false, false, false, false];
+            let safeSeq = [];
+            let work = [...avail]; // Copy available
+            
+            let count = 0;
+            while (count < n) {
+                let found = false;
+                for (let p = 0; p < n; p++) {
+                    if (!finish[p]) {
+                        // Check if Need <= Work
+                        let j;
+                        for (j = 0; j < m; j++) {
+                            if (need[p][j] > work[j]) break;
+                        }
+
+                        if (j === m) { // If all resources can be allocated
+                            for (let k = 0; k < m; k++) work[k] += alloc[p][k];
+                            safeSeq.push(`P${p}`);
+                            finish[p] = true;
+                            found = true;
+                            count++;
+                        }
+                    }
+                }
+                if (!found) {
+                    document.getElementById("result").innerHTML = "<span class='unsafe'>⚠️ System is in UNSAFE state! Deadlock possible.</span>";
+                    return;
+                }
+            }
+
+            document.getElementById("result").innerHTML = "<span class='safe'>✅ Safe Sequence Found: " + safeSeq.join(" → ") + "</span>";
+        }
+    </script>
+</body>
+</html>
