@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IPC Debugger & Visualizer</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; text-align: center; background: #f0f2f5; color: #333; }
+        h1 { margin-bottom: 5px; }
+        p.subtitle { color: #666; margin-bottom: 20px; font-size: 0.9em; }
+        
+        .container { 
+            margin: 20px auto; 
+            width: 90%; 
+            max-width: 800px;
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+        }
+
+        .row { display: flex; justify-content: center; align-items: center; margin-bottom: 20px; }
+
+        .process, .pipe, .queue, .memory {
+            display: flex; justify-content: center; align-items: center;
+            border-radius: 8px;
+            margin: 0 10px;
+            font-weight: bold;
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+
+        .process { width: 100px; height: 80px; border: 2px solid #333; background: #fff; }
+        .pipe, .queue, .memory { width: 160px; height: 50px; border: 2px solid #007bff; background: #e7f3ff; color: #007bff; }
+        
+        /* Active States */
+        .active { background: #ffeb3b !important; transform: scale(1.1); box-shadow: 0 0 15px #ffeb3b; border-color: #fbc02d; }
+        .sending { background: #4caf50 !important; color: white; border-color: #2e7d32; }
+        .receiving { background: #2196f3 !important; color: white; border-color: #0d47a1; }
+
+        .controls { margin: 20px; padding: 15px; background: #fff; border-radius: 8px; display: inline-block; }
+        
+        button { 
+            margin: 5px; padding: 10px 15px; cursor: pointer; font-size: 14px; 
+            background: #007bff; color: white; border: none; border-radius: 5px; transition: background 0.2s;
+        }
+        button:hover { background: #0056b3; }
+        button:disabled { background: #ccc; cursor: not-allowed; }
+        button.danger { background: #dc3545; }
+        button.danger:hover { background: #a71d2a; }
+
+        .log { 
+            margin: 20px auto; padding: 15px; border-radius: 5px;
+            background: #2d2d2d; height: 150px; overflow-y: auto; 
+            color: #00ff00; text-align: left; font-family: 'Courier New', monospace; font-size: 13px;
+            width: 80%;
+            box-shadow: inset 0 0 10px rgba(0,0,0,0.5);
+        }
+    </style>
+</head>
+<body>
+
+    <h1>IPC Debugger</h1>
+    <p class="subtitle">Inter-Process Communication & Deadlock Visualization</p>
+
+    <div class="container">
+        <div class="row">
+            <div class="process" id="p1">Process 1</div>
+            <div class="pipe" id="pipe">Pipe</div>
+            <div class="process" id="p2">Process 2</div>
+        </div>
+
+        <div class="row">
+            <div class="process" id="p3">Process 3</div>
+            <div class="queue" id="queue">Msg Queue</div>
+            <div class="process" id="p4">Process 4</div>
+        </div>
+
+        <div class="row">
+            <div class="process" id="p5">Process 5</div>
+            <div class="memory" id="memory">Shared Mem</div>
+            <div class="process" id="p6">Process 6</div>
+        </div>
+    </div>
+    
+    <div class="controls">
+        <button onclick="simulate('pipe')" id="btn-pipe">Simulate Pipe</button>
+        <button onclick="simulate('queue')" id="btn-queue">Simulate Msg Queue</button>
+        <button onclick="simulate('memory')" id="btn-memory">Simulate Shared Mem</button>
+        <hr>
+        <button class="danger" onclick="toggleDeadlockScenario()">Toggle Deadlock Cause</button>
+        <button onclick="detectDeadlock()">Check Deadlock</button>
+    </div>
+    
+    <div class="log" id="log">System Ready...</div>
+    
+    <script>
+        // --- Configuration ---
+        const DELAYS = {
+            step1: 0,
+            step2: 1200, // Time for data to move
+            reset: 2500  // Time to clear formatting
+        };
+
+        let isAnimating = false;
+        let deadlockScenarioActive = false; // Default: No deadlock
+
+        // --- Helper Functions ---
+        function logMessage(message) {
+            const log = document.getElementById("log");
+            const time = new Date().toLocaleTimeString();
+            log.innerHTML += `[${time}] ${message}<br>`;
+            log.scrollTop = log.scrollHeight;
+        }
+
+        function setStatus(id, type) {
+            let el = document.getElementById(id);
+            if (type === 'sending') el.classList.add("sending");
+            else if (type === 'active') el.classList.add("active");
+            else if (type === 'receiving') el.classList.add("receiving");
+            
+            setTimeout(() => {
+                el.classList.remove("sending", "active", "receiving");
+            }, DELAYS.reset); // Clear after animation
+        }
+
+        // --- Simulation Logic ---
+        function simulate(type) {
+            if (isAnimating) {
+                logMessage("⚠️ System busy. Please wait for the current process to finish.");
+                return;
+            }
+            isAnimating = true;
+
+            if (type === 'pipe') {
+                logMessage("[Pipe] P1 writing stream to Pipe...");
+                setStatus("p1", "sending");
+                setStatus("pipe", "active");
+
+                setTimeout(() => {
+                    setStatus("p2", "receiving");
+                    logMessage("[Pipe] P2 reading stream from Pipe.");
+                    isAnimating = false;
+                }, DELAYS.step2);
+            } 
+            else if (type === 'queue') {
+                logMessage("[Queue] P3 enqueueing message...");
+                setStatus("p3", "sending");
+                setStatus("queue", "active");
+
+                setTimeout(() => {
+                    setStatus("p4", "receiving");
+                    logMessage("[Queue] P4 dequeued message.");
+                    isAnimating = false;
+                }, DELAYS.step2);
+            } 
+            else if (type === 'memory') {
+                logMessage("[Memory] P5 writing to Shared Block 0xFA...");
+                setStatus("p5", "sending");
+                setStatus("memory", "active");
+
+                setTimeout(() => {
+                    setStatus("p6", "receiving");
+                    logMessage("[Memory] P6 reading from Shared Block 0xFA.");
+                    isAnimating = false;
+                }, DELAYS.step2);
+            }
+        }
+
+        // --- Deadlock Logic ---
+        
+        function toggleDeadlockScenario() {
+            deadlockScenarioActive = !deadlockScenarioActive;
+            if(deadlockScenarioActive) {
+                logMessage("⚠️ Deadlock condition INJECTED (P6 waiting on P5).");
+            } else {
+                logMessage("✅ Deadlock condition CLEARED.");
+            }
+        }
+
+        function detectDeadlock() {
+            // Define graph dynamically based on current scenario
+            let resourceGraph = {
+                "p1": ["pipe"], "pipe": ["p2"],
+                "p3": ["queue"], "queue": ["p4"],
+                "p5": ["memory"], "memory": ["p6"]
+            };
+
+            // If scenario is active, create the cycle: P6 waits for P5
+            if (deadlockScenarioActive) {
+                resourceGraph["p6"] = ["p5"]; 
+            }
+
+            logMessage("🔍 Analyzing Resource Allocation Graph...");
+
+            // DFS Cycle Detection
+            let visited = new Set();
+            let stack = new Set();
+            let cycleFound = false;
+
+            function isCyclic(node) {
+                if (stack.has(node)) return true;
+                if (visited.has(node)) return false;
+
+                visited.add(node);
+                stack.add(node);
+
+                for (let neighbor of (resourceGraph[node] || [])) {
+                    if (isCyclic(neighbor)) {
+                        return true;
+                    }
+                }
+                stack.delete(node);
+                return false;
+            }
+
+            for (let node in resourceGraph) {
+                if (isCyclic(node)) {
+                    cycleFound = true;
+                    break;
+                }
+            }
+
+            if (cycleFound) {
+                logMessage("❌ CRITICAL: Circular Wait Detected! (Deadlock)");
+                alert("Deadlock Detected! Process 6 and Process 5 are stuck in a circular wait.");
+            } else {
+                logMessage("✅ System Healthy: No cycles detected.");
+                alert("No Deadlock detected.");
+            }
+        }
+    </script>
+</body>
+</html>
