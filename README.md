@@ -1,1 +1,1 @@
-# ipc-debugger
+# Inter-Process communication debugger
